@@ -39,13 +39,13 @@ class Interfaces():
 
 
             basepose3D = ic.propertyToProxy("CamAutoloc.Pose3D.Proxy")
-            print("Autoloc:",basepose3D)
+            print "Autoloc:",basepose3D
 
             self.pose3DProxy=jderobot.Pose3DPrx.checkedCast(basepose3D)
             if self.pose3DProxy:
                 self.pose=jderobot.Pose3DData()
             else:
-                print ('Interface pose3D not connected')
+                print 'Interface pose3D not connected'
 
 
 
@@ -53,12 +53,12 @@ class Interfaces():
 
             #------- POSE3D SIM ---------
             simpose3D = ic.propertyToProxy("CamAutoloc.Pose3Dsim.Proxy")
-            print("Simpose: ",simpose3D)
+            print "GroundTruth: ",simpose3D
             self.simpose3DProxy=jderobot.Pose3DPrx.checkedCast(simpose3D)
             if self.simpose3DProxy:
                 self.simpose=jderobot.Pose3DData()
             else:
-                print ('Interface pose3D not connected')
+                print 'Interface pose3D not connected'
 
 
 
@@ -86,6 +86,7 @@ class Interfaces():
         #if self.pose3DProxy:
         self.pose=self.pose3DProxy.getPose3DData()
         self.simpose=self.simpose3DProxy.getPose3DData()
+        self.error =Interfaces.getError(self)
 
     def getPose3D(self):
         if self.pose3DProxy:
