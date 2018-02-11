@@ -10,6 +10,8 @@ from widgetplot import MyplotXYZ,MyplotRPY,MyDynamicMplCanvas
 from interfaces.interfaces import PosXYZRPY
 from OpenGL.GL import *
 from OpenGL.GLU import *
+import threading
+from PyQt5.QtCore import QTimer
 
 
 
@@ -17,8 +19,24 @@ from OpenGL.GLU import *
 class Gui(QWidget):
     def __init__(self,map,interface):
         super(Gui, self).__init__()
-        self.initUI(map=map)
+
+        # Estimated
+        self.xestimated = []
+        self.yestimated = []
+        self.zestimated = []
+        self.Restimated = []
+        self.Yestimated = []
+        self.Pestimated = []
+
+        self.xreal = []
+        self.yreal = []
+        self.zreal = []
+        self.Rreal = []
+        self.Yreal = []
+        self.Preal = []
         self.interface = interface
+        self.initUI(map=map)
+
 
     def initUI(self,map):
         ### initialize
@@ -71,13 +89,12 @@ class Gui(QWidget):
         ButtonSave.move(640+50, 480+30)
         ButtonSave.clicked[bool].connect(self.savingResult)
 
-
         # Plot map
         self.main_widget = QWidget(self)
         l = QVBoxLayout(self.main_widget)
         self.dc = MyDynamicMplCanvas(parent=self.main_widget,option=self.showNow,
-                                     posesim=self.pose3dEstimated,posereal=self.pose3dReal,error=self.error,
-                                     map=self.map)
+                                        map=self.map, xsim=self.xestimated, ysim=self.yestimated,
+                                        xreal=self.xreal, yreal=self.yreal,interface=self.interface)
         l.addWidget(self.dc)
 
 
@@ -86,6 +103,9 @@ class Gui(QWidget):
         self.setGeometry(600, 600, 250, 150)
         self.setWindowTitle('Compare')
         self.setFixedSize(10+640+20+150,600)
+
+    def setInterface(self,interface):
+        self.interface = interface
 
     def showXYZ(self,state):
         if state == Qt.Checked:
@@ -120,25 +140,35 @@ class Gui(QWidget):
     def savingResult(self):
         self.textbox.setText("Saving result...")
         ## Save real and sim xyzRYP
+        np.save(os.path.join("result", "xestimated.npy"), np.array(self.xestimated))
+
+        np.save(os.path.join("result", "yestimated.npy"), np.array(self.yestimated))
+        np.save(os.path.join("result", "xreal.npy"), np.array(self.xreal))
+        np.save(os.path.join("result", "yreal.npy"), np.array(self.yreal))
 
         self.textbox.setText("Done!")
 
 
-
-
-
-    def update_data(self):
-
+    def update(self):
         ###### Estimated ########
-        self.pose3dEstimated.append(PosXYZRPY(self.interface.getsimPose3D()))
+        pose3dEstimated = PosXYZRPY(self.interface.getsimPose3D())
+
+        self.xestimated.append(pose3dEstimated.x)
+        self.yestimated.append(pose3dEstimated.y)
+        self.zestimated.append(pose3dEstimated.z)
+        self.Restimated.append(pose3dEstimated.R)
+        self.Yestimated.append(pose3dEstimated.Y)
+        self.Pestimated.append(pose3dEstimated.P)
 
         ###### Real ########
-        self.pose3dReal.append(PosXYZRPY(self.interface.getPose3D()))
+        pose3dReal = PosXYZRPY(self.interface.getPose3D())
 
-        ##### Error ########
-        self.error.append(PosXYZRPY(self.interface.getError()))
-
-
+        self.xreal.append(pose3dReal.x)
+        self.yreal.append(pose3dReal.y)
+        self.zreal.append(pose3dReal.z)
+        self.Rreal.append(pose3dReal.R)
+        self.Yreal.append(pose3dReal.Y)
+        self.Preal.append(pose3dReal.P)
 
 
 

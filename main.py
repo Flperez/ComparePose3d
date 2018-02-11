@@ -13,15 +13,15 @@ if __name__ == '__main__':
     interface = Interfaces(sys.argv[1])
 
     app = QApplication(sys.argv)
-    window = Gui(map="markers.txt",interface=interface)
-
+    window = Gui("markers.txt",interface)
+    window.show()
 
     t1 = ThreadInt(interface)
     t1.start()
 
     t2 = ThreadGui(window)
     t2.start()
-    window.show()
+
 
     sys.exit(app.exec_())
 
