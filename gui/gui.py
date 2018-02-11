@@ -1,42 +1,35 @@
 from PyQt5.QtWidgets import QWidget,QCheckBox,QPushButton,QLineEdit,QSizePolicy,QVBoxLayout
-from PyQt5.QtCore import Qt,QTimer
+from PyQt5.QtCore import Qt,pyqtSignal
 import pyqtgraph as pg
 import math
 import jderobot
 from jderobotTypes import pose3d
 import numpy as np
 import sys,os
-from widgetplot import MyplotXYZ,MyplotRPY
+from widgetplot import MyplotXYZ,MyplotRPY,MyDynamicMplCanvas
 from interfaces.interfaces import PosXYZRPY
-
+from OpenGL.GL import *
+from OpenGL.GLU import *
 
 
 
 
 class Gui(QWidget):
-
-    def __init__(self,map):
+    def __init__(self,map,interface):
         super(Gui, self).__init__()
         self.initUI(map=map)
+        self.interface = interface
 
     def initUI(self,map):
         ### initialize
         self.filename = map
+
         # Estimated
-        self.xestimated = []
-        self.yestimated = []
-        self.zestimated = []
-        self.Restimated = []
-        self.Yestimated = []
-        self.Pestimated = []
+        self.pose3dEstimated = []
+        self.pose3dReal = []
+        self.error = []
 
-        self.xreal = []
-        self.yreal = []
-        self.zreal = []
-        self.Rreal = []
-        self.Yreal = []
-        self.Preal = []
-
+        self.loadpathXYZ()
 
 
         ### Text out
@@ -80,26 +73,26 @@ class Gui(QWidget):
 
 
         # Plot map
-        self.pathx,self.pathy,self.pathz = Gui.loadpathXYZ(self)
-
         self.main_widget = QWidget(self)
         l = QVBoxLayout(self.main_widget)
+        self.dc = MyDynamicMplCanvas(parent=self.main_widget,option=self.showNow,
+                                     posesim=self.pose3dEstimated,posereal=self.pose3dReal,error=self.error,
+                                     map=self.map)
+        l.addWidget(self.dc)
 
-        self.myplot = MyplotXYZ(parent=self.main_widget, width=5, height=4, dpi=100,
-                                xmap=self.pathx, ymap=self.pathy,
-                                xsim=self.xestimated, ysim=self.yestimated,
-                                xreal=self.xreal, yreal=self.yreal)
-        l.addWidget(self.myplot)
+
+
 
         self.setGeometry(600, 600, 250, 150)
         self.setWindowTitle('Compare')
         self.setFixedSize(10+640+20+150,600)
-        self.show()
 
     def showXYZ(self,state):
         if state == Qt.Checked:
             self.textbox.setText("You have selected show XYZ graph")
             self.showNow = "showXYZ"
+            self.dc.setOption(self.showNow)
+
             self.cbRPY.setChecked(False)
             self.cbError.setChecked(False)
 
@@ -109,6 +102,8 @@ class Gui(QWidget):
             self.showNow = "showRPY"
             self.cbxyz.setChecked(False)
             self.cbError.setChecked(False)
+            self.dc.setOption(self.showNow)
+
 
 
             
@@ -117,6 +112,7 @@ class Gui(QWidget):
         if state == Qt.Checked:
             self.textbox.setText("You have selected show error graph")
             self.showNow = "showError"
+            self.dc.setOption(self.showNow)
             self.cbxyz.setChecked(False)
             self.cbRPY.setChecked(False)
 
@@ -124,70 +120,42 @@ class Gui(QWidget):
     def savingResult(self):
         self.textbox.setText("Saving result...")
         ## Save real and sim xyzRYP
-        np.save(os.path.join("result","xestimated.npy"),np.array(self.xestimated))
-        np.save(os.path.join("result","yestimated.npy"),np.array(self.yestimated))
-        np.save(os.path.join("result","xreal.npy"),np.array(self.xreal))
-        np.save(os.path.join("result","yreal.npy"),np.array(self.yreal))
+
         self.textbox.setText("Done!")
 
 
 
 
 
-    def setInterface(self,interface):
-        self.interface=interface
-
-    def update(self):
+    def update_data(self):
 
         ###### Estimated ########
-        pose3dEstimated = PosXYZRPY(self.interface.getsimPose3D())
-        self.xestimated.append(pose3dEstimated.x)
-        self.yestimated.append(pose3dEstimated.y)
-        self.zestimated.append(pose3dEstimated.z)
-        self.Restimated.append(pose3dEstimated.R)
-        self.Yestimated.append(pose3dEstimated.Y)
-        self.Pestimated.append(pose3dEstimated.P)
+        self.pose3dEstimated.append(PosXYZRPY(self.interface.getsimPose3D()))
 
         ###### Real ########
-        pose3dReal = PosXYZRPY(self.interface.getPose3D())
-        self.xreal.append(pose3dReal.x)
-        self.yreal.append(pose3dReal.y)
-        self.zreal.append(pose3dReal.z)
-        self.Rreal.append(pose3dReal.R)
-        self.Yreal.append(pose3dReal.Y)
-        self.Preal.append(pose3dReal.P)
+        self.pose3dReal.append(PosXYZRPY(self.interface.getPose3D()))
 
         ##### Error ########
-        self.error = PosXYZRPY(self.interface.getError())
-
-
-
-
-
-
+        self.error.append(PosXYZRPY(self.interface.getError()))
 
 
 
 
 
     def loadpathXYZ(self):
-        xlist = []
-        ylist = []
-        zlist = []
+        a=[]
 
         for line in open(self.filename, 'r').readlines():
             line = line.rstrip('\n')
             linelist = line.split()
             if len(linelist)>1:
+                pose = jderobot.Pose3DData()
+                pose.x = float(linelist[0])
+                pose.y = float(linelist[1])
+                pose.z = float(linelist[2])
+                a.append(pose)
 
-                x = float(linelist[0])
-                y = float(linelist[1])
-                z = float(linelist[2])
-
-                xlist.append(x)
-                ylist.append(y)
-                zlist.append(z)
-        return xlist,ylist,zlist
+        self.map = list(a)
 
 
 

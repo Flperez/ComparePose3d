@@ -17,6 +17,7 @@ class ThreadInt(threading.Thread):
 
             start_time = datetime.now()
             self.interface.update()
+            print "update interface"
             end_time = datetime.now()
 
             dt = end_time - start_time
